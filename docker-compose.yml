@@ -21,13 +21,24 @@ services:
       API_SERVER_PORT: "8642"
       API_SERVER_KEY: ${API_SERVER_KEY:?API_SERVER_KEY manquante, voir .env.example}
 
+  # Un volume nommé est créé en root:root, or Flowise tourne en utilisateur
+  # « node » (uid 1000) : on lui donne les droits avant le démarrage.
+  flowise-init:
+    image: busybox:stable
+    command: chown -R 1000:1000 /data
+    volumes:
+      - flowise_data:/data
+
   flowise:
-    image: flowiseai/flowise:${FLOWISE_IMAGE_TAG:-latest}
+    image: flowiseai/flowise:${FLOWISE_IMAGE_TAG:-3.1.3}
     container_name: flowise
     restart: unless-stopped
     entrypoint: /bin/sh -c "sleep 3; flowise start"
     depends_on:
-      - hermes
+      hermes:
+        condition: service_started
+      flowise-init:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:${FLOWISE_PORT:-3000}:3000"
     volumes:
