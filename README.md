@@ -23,3 +23,17 @@ curl http://localhost:3000/api/v1/ping     # Flowise
 3. Test dans le chat : « Réponds uniquement : pong » → `pong`.
 
 Hermes configure son fournisseur LLM via `docker compose run --rm -it hermes setup` (ou `... hermes model`).
+
+## Nœud Hermes Task (étape 3)
+
+Les nœuds personnalisés sont dans `nodes/` (TypeScript strict). Flowise ne charge les nœuds que depuis
+`flowise-components/dist` : l'image `docker/flowise/Dockerfile` compile `nodes/` et les y copie.
+
+```bash
+docker compose up -d --build     # reconstruit l'image Flowise avec les nœuds
+cd nodes && npm install && npm test   # tests unitaires (HTTP mocké)
+```
+
+Dans Flowise : **Credentials → Hermes API** (URL `http://hermes:8642`, clé = `API_SERVER_KEY`),
+puis dans un **Agentflow** : nœud **Hermes Task** (catégorie « Agent Flows »).
+Le texte de la réponse est disponible dans `{{ hermesTaskAgentflow_0.output.content }}`.

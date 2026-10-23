@@ -1,0 +1,5 @@
+node_modules
+nodes/node_modules
+nodes/build
+.git
+.env

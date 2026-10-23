@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "commonjs",
+        "lib": ["ES2020", "DOM"],
+        "strict": true,
+        "strictPropertyInitialization": false,
+        "useUnknownInCatchVariables": false,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "rootDir": "src",
+        "outDir": "build",
+        "baseUrl": ".",
+        "paths": { "flowise-components": ["types/flowise-components.d.ts"] }
+    },
+    "include": ["src", "types"]
+}

@@ -30,7 +30,13 @@ services:
       - flowise_data:/data
 
   flowise:
-    image: flowiseai/flowise:${FLOWISE_IMAGE_TAG:-3.1.3}
+    # Image officielle + nœuds Hermes compilés (voir docker/flowise/Dockerfile).
+    build:
+      context: .
+      dockerfile: docker/flowise/Dockerfile
+      args:
+        FLOWISE_IMAGE_TAG: ${FLOWISE_IMAGE_TAG:-3.1.3}
+    image: flowise-hermes:local
     container_name: flowise
     restart: unless-stopped
     entrypoint: /bin/sh -c "sleep 3; flowise start"
