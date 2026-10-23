@@ -37,3 +37,19 @@ cd nodes && npm install && npm test   # tests unitaires (HTTP mocké)
 Dans Flowise : **Credentials → Hermes API** (URL `http://hermes:8642`, clé = `API_SERVER_KEY`),
 puis dans un **Agentflow** : nœud **Hermes Task** (catégorie « Agent Flows »).
 Le texte de la réponse est disponible dans `{{ hermesTaskAgentflow_0.output.content }}`.
+
+## Nœud Hermes Schedule (étape 4)
+
+Pilote les tâches planifiées de Hermes via son API (`/api/jobs`). Opérations : **Créer, Lister, Mettre en pause,
+Reprendre, Exécuter maintenant, Supprimer**. Une tâche existante se désigne par son identifiant (12 caractères
+hexadécimaux) ou par son nom.
+
+| Champ (création) | Exemple |
+|---|---|
+| Nom (200 car. max) | `Digest quotidien` |
+| Planning | `daily at 7am`, `every 1h`, `0 9 * * MON-FRI`, `in 30m`, `2026-03-15T09:00:00` |
+| Prompt (5000 car. max) | instruction autonome exécutée par Hermes à chaque déclenchement |
+| Livraison | `local` (défaut), `telegram`, `telegram:<chat_id>`, `slack`, `all` |
+
+Sortie : `{{ hermesScheduleAgentflow_0.output.content }}` (texte), `.output.job` / `.output.jobs` (objets).
+Les dates affichées par Hermes sont en UTC.

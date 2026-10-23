@@ -1,34 +1,38 @@
 /**
- * Client HTTP minimal pour l'API OpenAI-compatible du gateway Hermes.
+ * Client HTTP minimal pour l'API du gateway Hermes (OpenAI-compatible + /api/jobs).
  * Aucune dépendance à Flowise : toute la logique d'appel et de gestion d'erreurs est testable seule.
  */
 
+export type HermesErrorCode =
+    | 'UNREACHABLE'
+    | 'TIMEOUT'
+    | 'UNAUTHORIZED'
+    | 'NOT_FOUND'
+    | 'RATE_LIMITED'
+    | 'UNAVAILABLE'
+    | 'BAD_REQUEST'
+    | 'BAD_RESPONSE'
+
 export class HermesError extends Error {
-    constructor(
-        message: string,
-        public readonly code: 'UNREACHABLE' | 'TIMEOUT' | 'UNAUTHORIZED' | 'RATE_LIMITED' | 'UNAVAILABLE' | 'BAD_REQUEST' | 'BAD_RESPONSE',
-        public readonly status?: number
-    ) {
+    constructor(message: string, public readonly code: HermesErrorCode, public readonly status?: number) {
         super(message)
         this.name = 'HermesError'
     }
 }
 
-export interface HermesChatOptions {
+export interface HermesConnection {
     baseUrl: string
     apiKey: string
-    prompt: string
-    instructions?: string
-    sessionId?: string
     /** Délai maximal en millisecondes. */
     timeoutMs: number
     fetchImpl?: typeof fetch
 }
 
-export interface HermesChatResult {
-    content: string
-    reasoning?: string
-    usage?: Record<string, number>
+export interface HermesRequestOptions extends HermesConnection {
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+    path: string
+    body?: unknown
+    headers?: Record<string, string>
 }
 
 /** Retire les espaces, le « / » final et un éventuel « /v1 » final : on ajoute nous-mêmes le chemin. */
@@ -42,20 +46,14 @@ const extractApiMessage = (body: any): string | undefined => {
     return undefined
 }
 
-export const chatCompletion = async (opts: HermesChatOptions): Promise<HermesChatResult> => {
+/** Appelle Hermes, gère délai et erreurs HTTP, et renvoie le corps JSON de la réponse (2xx). */
+export const hermesRequest = async (opts: HermesRequestOptions): Promise<any> => {
     const baseUrl = normalizeBaseUrl(opts.baseUrl)
     if (!baseUrl) throw new HermesError("L'URL de Hermes est vide : renseignez-la dans le credential « Hermes API ».", 'BAD_REQUEST')
-    if (!opts.apiKey) throw new HermesError("La clé API de Hermes est vide : renseignez-la dans le credential « Hermes API ».", 'UNAUTHORIZED')
+    if (!opts.apiKey) throw new HermesError('La clé API de Hermes est vide : renseignez-la dans le credential « Hermes API ».', 'UNAUTHORIZED')
 
-    const messages: { role: string; content: string }[] = []
-    if (opts.instructions?.trim()) messages.push({ role: 'system', content: opts.instructions })
-    messages.push({ role: 'user', content: opts.prompt })
-
-    const headers: Record<string, string> = {
-        Authorization: `Bearer ${opts.apiKey}`,
-        'Content-Type': 'application/json'
-    }
-    if (opts.sessionId?.trim()) headers['X-Hermes-Session-Id'] = opts.sessionId.trim()
+    const headers: Record<string, string> = { Authorization: `Bearer ${opts.apiKey}`, ...opts.headers }
+    if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), opts.timeoutMs)
@@ -63,10 +61,10 @@ export const chatCompletion = async (opts: HermesChatOptions): Promise<HermesCha
 
     let response: Response
     try {
-        response = await doFetch(`${baseUrl}/v1/chat/completions`, {
-            method: 'POST',
+        response = await doFetch(`${baseUrl}${opts.path}`, {
+            method: opts.method,
             headers,
-            body: JSON.stringify({ model: 'hermes-agent', messages, stream: false }),
+            body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
             signal: controller.signal
         })
     } catch (e: any) {
@@ -84,7 +82,7 @@ export const chatCompletion = async (opts: HermesChatOptions): Promise<HermesCha
         )
     }
 
-    // Le corps (non-streaming) peut aussi être long à arriver : le délai court jusqu'à la fin de la lecture.
+    // Le corps peut aussi être long à arriver : le délai court jusqu'à la fin de la lecture.
     let text: string
     try {
         text = await response.text()
@@ -111,6 +109,8 @@ export const chatCompletion = async (opts: HermesChatOptions): Promise<HermesCha
             case 401:
             case 403:
                 throw new HermesError('Clé API refusée par Hermes (HTTP ' + response.status + '). Vérifiez que la clé du credential égale API_SERVER_KEY.', 'UNAUTHORIZED', response.status)
+            case 404:
+                throw new HermesError('Ressource introuvable côté Hermes (HTTP 404).' + suffix, 'NOT_FOUND', 404)
             case 429:
                 throw new HermesError('Hermes a atteint son nombre maximal de tâches simultanées (HTTP 429). Réessayez dans un instant.' + suffix, 'RATE_LIMITED', 429)
             case 503:
@@ -120,13 +120,43 @@ export const chatCompletion = async (opts: HermesChatOptions): Promise<HermesCha
         }
     }
 
+    if (body === undefined) throw new HermesError('Réponse inattendue de Hermes : corps vide ou non JSON.', 'BAD_RESPONSE', response.status)
+    return body
+}
+
+export interface HermesChatOptions extends HermesConnection {
+    prompt: string
+    instructions?: string
+    sessionId?: string
+}
+
+export interface HermesChatResult {
+    content: string
+    reasoning?: string
+    usage?: Record<string, number>
+}
+
+export const chatCompletion = async (opts: HermesChatOptions): Promise<HermesChatResult> => {
+    const messages: { role: string; content: string }[] = []
+    if (opts.instructions?.trim()) messages.push({ role: 'system', content: opts.instructions })
+    messages.push({ role: 'user', content: opts.prompt })
+
+    const headers: Record<string, string> = {}
+    if (opts.sessionId?.trim()) headers['X-Hermes-Session-Id'] = opts.sessionId.trim()
+
+    const body = await hermesRequest({
+        ...opts,
+        method: 'POST',
+        path: '/v1/chat/completions',
+        headers,
+        body: { model: 'hermes-agent', messages, stream: false }
+    })
+
     const message = body?.choices?.[0]?.message
     if (!message || typeof message.content !== 'string') {
-        throw new HermesError('Réponse inattendue de Hermes : pas de contenu dans choices[0].message.', 'BAD_RESPONSE', response.status)
+        throw new HermesError('Réponse inattendue de Hermes : pas de contenu dans choices[0].message.', 'BAD_RESPONSE')
     }
-    if (!message.content.trim()) {
-        throw new HermesError("Hermes a renvoyé une réponse vide.", 'BAD_RESPONSE', response.status)
-    }
+    if (!message.content.trim()) throw new HermesError('Hermes a renvoyé une réponse vide.', 'BAD_RESPONSE')
 
     return {
         content: message.content,

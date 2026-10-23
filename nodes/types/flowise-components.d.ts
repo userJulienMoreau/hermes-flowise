@@ -5,6 +5,16 @@ declare module 'flowise-components' {
         [key: string]: any
     }
 
+    export interface INodeOptionsValue {
+        label: string
+        name: string
+        description?: string
+    }
+
+    export interface INodeDisplay {
+        [key: string]: string[] | string | boolean | number | ICommonObject
+    }
+
     export interface INodeParams {
         label: string
         name: string
@@ -18,6 +28,9 @@ declare module 'flowise-components' {
         placeholder?: string
         acceptVariable?: boolean
         additionalParams?: boolean
+        options?: INodeOptionsValue[]
+        show?: INodeDisplay
+        hide?: INodeDisplay
     }
 
     export interface INodeProperties {
