@@ -74,6 +74,15 @@ Opérations de définition :
 - **Lire** : renvoie la définition *actuelle* dans Hermes (planning, prompt, livraison, statut) pour l'afficher ou l'utiliser dans le flow :
   c'est l'option où **Hermes fait foi**.
 
+### Mettre à jour les nœuds déjà posés dans vos flows
+Flowise copie la définition d'un nœud **dans le flow** au moment où on l'ajoute : après une évolution (nouvelle opération, nouveau champ),
+les flows existants gardent l'ancienne liste (ex. « Synchroniser » absent du menu). Remède, **flows fermés dans l'éditeur** :
+```bash
+docker compose exec hermes python3 /opt/data/scripts/refresh_nodes.py --dry-run    # liste ce qui serait modifié
+docker compose exec hermes python3 /opt/data/scripts/refresh_nodes.py              # applique (option --flow NOM pour un seul flow)
+```
+Les valeurs saisies, le credential et les liens sont conservés. À lancer après chaque `docker compose up -d --build` qui modifie un nœud.
+
 ### Synchronisation automatique dans les deux sens (flow ↔ job)
 
 Un job « **Sync Flowise-Hermes** » (toutes les 5 minutes, sans LLM) exécute `hermes/scripts/sync_flows.py`. Pour chaque nœud Hermes Schedule en
@@ -151,7 +160,7 @@ textes `hermesPrompt` et `hermesInstructions` du JSON.
 
 ```bash
 cd nodes && npm install && npm test          # 65 tests TypeScript (HTTP mocké), compilation stricte : npm run typecheck
-python3 -I -m unittest discover -s hermes/tests   # 37 tests des scripts de déclenchement
+python3 -I -m unittest discover -s hermes/tests   # 44 tests des scripts
 ```
 
 Structure : `nodes/` (nœuds et credential en TypeScript strict ; `src/nodes/shared/` = client HTTP sans dépendance à Flowise),

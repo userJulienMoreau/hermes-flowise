@@ -10,3 +10,5 @@ hermes/scripts/*.py
 !hermes/scripts/flowise_trigger.example.py
 !hermes/scripts/flow_sync.py
 !hermes/scripts/sync_flows.py
+!hermes/scripts/node_refresh.py
+!hermes/scripts/refresh_nodes.py
