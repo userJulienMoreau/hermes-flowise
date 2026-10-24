@@ -22,13 +22,17 @@ curl http://localhost:8642/health             # Hermes     -> {"status": "ok", �
 curl http://localhost:3000/api/v1/ping        # Flowise    -> pong
 ```
 
-Flowise : <http://localhost:3000> (créer le compte administrateur à la première visite).
+- **Flowise** : <http://localhost:3000> (créer le compte administrateur à la première visite).
+- **Tableau de bord Hermes** : <http://localhost:9119> — identifiant `HERMES_DASHBOARD_USERNAME` (défaut `admin`) et mot de passe `HERMES_DASHBOARD_PASSWORD` du `.env`.
+- API de Hermes : `http://localhost:8642` (sans page web ; `/health` pour tester).
+
 Les ports ne sont exposés que sur `127.0.0.1`.
 
 ## Configuration
 
 | Variable (`.env`) | Rôle |
 |---|---|
+| `HERMES_DASHBOARD_USERNAME` / `HERMES_DASHBOARD_PASSWORD` | Connexion au tableau de bord web de Hermes (mot de passe obligatoire). |
 | `API_SERVER_KEY` | Clé Bearer de l'API de Hermes (obligatoire). |
 | `FLOWISE_SECRETKEY_OVERWRITE` | Clé de chiffrement des credentials Flowise (obligatoire ; la garder identique d'une installation à l'autre). |
 | `FLOWISE_API_KEY` | Optionnelle : clé Flowise utilisée par les scripts cron si vos flows sont protégés. |

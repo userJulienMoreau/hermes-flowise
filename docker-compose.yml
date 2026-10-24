@@ -11,6 +11,8 @@ services:
     ports:
       # Exposé sur localhost uniquement : l'API pilote un agent avec outils.
       - "127.0.0.1:${HERMES_API_PORT:-8642}:8642"
+      # Tableau de bord web de Hermes (connexion par identifiant / mot de passe du .env).
+      - "127.0.0.1:${HERMES_DASHBOARD_PORT:-9119}:9119"
     volumes:
       # Volume nommé (et non bind mount) : SQLite WAL est peu fiable sur
       # virtiofs avec Docker Desktop macOS.
@@ -23,6 +25,9 @@ services:
       API_SERVER_PORT: "8642"
       API_SERVER_KEY: ${API_SERVER_KEY:?API_SERVER_KEY manquante, voir .env.example}
       # Utilisés par hermes/scripts/flowise_run.py (déclenchement planifié d'un flow).
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${HERMES_DASHBOARD_USERNAME:-admin}
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${HERMES_DASHBOARD_PASSWORD:?HERMES_DASHBOARD_PASSWORD manquant, voir .env.example}
       FLOWISE_URL: http://flowise:3000
       FLOWISE_API_KEY: ${FLOWISE_API_KEY:-}
 
