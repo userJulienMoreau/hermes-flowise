@@ -53,3 +53,38 @@ hexadécimaux) ou par son nom.
 
 Sortie : `{{ hermesScheduleAgentflow_0.output.content }}` (texte), `.output.job` / `.output.jobs` (objets).
 Les dates affichées par Hermes sont en UTC.
+
+## Déclenchement planifié d'un flow Flowise (étape 5)
+
+### Options comparées
+
+| Option | Verdict |
+|---|---|
+| **Job Hermes `--no-agent --script`** : le planificateur de Hermes exécute un script qui appelle `POST /api/v1/prediction/<id>` ; la sortie est livrée (Telegram, Slack...) | **Retenue.** Sans LLM ni jeton consommé, déterministe, silencieux si le script n'affiche rien, alerte automatique en cas d'erreur. |
+| Job Hermes avec prompt (l'agent appelle l'API) | Consomme des jetons à chaque tick, résultat non déterministe. |
+| Planificateur natif de Flowise (nœud Start → « Schedule Input ») | L'option existe dans l'éditeur de la 3.1.3, mais je n'ai trouvé aucun code de planification côté serveur dans cette version : non fiable, non testé. |
+| Cron de l'hôte | Un composant de plus à maintenir. |
+
+### Mise en place
+
+1. Dans Flowise, ouvrir le flow → `</>` : l'ID est dans l'URL `/api/v1/prediction/<ID>`.
+2. Copier le modèle et le renseigner (ID du flow et question) :
+   ```bash
+   cp hermes/scripts/flowise_trigger.example.py hermes/scripts/digest_quotidien.py
+   ```
+3. Créer la tâche (le dossier `hermes/scripts` est monté dans Hermes en lecture seule) :
+   ```bash
+   docker compose exec hermes hermes cron create "daily at 7am" --no-agent \
+       --script digest_quotidien.py --deliver telegram --name "Digest quotidien"
+   ```
+4. Tester tout de suite : `docker compose exec hermes hermes cron run "Digest quotidien"`.
+
+Règles du script (`hermes/scripts/flowise_run.py`) : la réponse du flow est livrée telle quelle ;
+si le flow répond **`NO_ALERT`** (ou vide), rien n'est envoyé ; une erreur (Flowise arrêté, clé refusée, flow inconnu)
+donne un code de sortie 1 et Hermes livre une alerte. Variables : `FLOWISE_URL` (défaut `http://flowise:3000`),
+`FLOWISE_API_KEY` (optionnelle, clé créée dans Flowise > API Keys).
+
+**Limite :** l'API de Hermes (`/api/jobs`) ne permet pas de créer une tâche « script ». Elle se crée en CLI ;
+le nœud **Hermes Schedule** peut ensuite la lister, la mettre en pause, la reprendre, l'exécuter ou la supprimer.
+
+Tests du script : `python3 -I -m unittest discover -s hermes/tests`.
