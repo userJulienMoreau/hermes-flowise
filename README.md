@@ -88,3 +88,15 @@ donne un code de sortie 1 et Hermes livre une alerte. Variables : `FLOWISE_URL` 
 le nœud **Hermes Schedule** peut ensuite la lister, la mettre en pause, la reprendre, l'exécuter ou la supprimer.
 
 Tests du script : `python3 -I -m unittest discover -s hermes/tests`.
+
+## Dépannage : données Flowise perdues après un `docker compose up --build`
+
+L'image Flowise 3.1.3 tourne en **root** : ses données (base SQLite, clés API, credentials, flows) sont dans
+`/root/.flowise`. Le volume `flowise_data` doit être monté **là** (c'est le cas dans `docker-compose.yml`).
+Monté sur `/home/node/.flowise`, il restait vide et les données disparaissaient à chaque recréation du conteneur.
+
+Sauvegarde manuelle :
+```bash
+docker compose stop flowise && docker cp flowise:/root/.flowise ./sauvegarde-flowise && docker compose start flowise
+```
+Garder `FLOWISE_SECRETKEY_OVERWRITE` identique d'une installation à l'autre, sinon les credentials ne se déchiffrent plus.

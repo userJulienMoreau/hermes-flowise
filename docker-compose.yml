@@ -26,14 +26,6 @@ services:
       FLOWISE_URL: http://flowise:3000
       FLOWISE_API_KEY: ${FLOWISE_API_KEY:-}
 
-  # Un volume nommé est créé en root:root, or Flowise tourne en utilisateur
-  # « node » (uid 1000) : on lui donne les droits avant le démarrage.
-  flowise-init:
-    image: busybox:stable
-    command: chown -R 1000:1000 /data
-    volumes:
-      - flowise_data:/data
-
   flowise:
     # Image officielle + nœuds Hermes compilés (voir docker/flowise/Dockerfile).
     build:
@@ -46,14 +38,14 @@ services:
     restart: unless-stopped
     entrypoint: /bin/sh -c "sleep 3; flowise start"
     depends_on:
-      hermes:
-        condition: service_started
-      flowise-init:
-        condition: service_completed_successfully
+      - hermes
     ports:
       - "127.0.0.1:${FLOWISE_PORT:-3000}:3000"
     volumes:
-      - flowise_data:/home/node/.flowise
+      # L'image Flowise 3.1.3 tourne en root (HOME=/root) : ses données sont dans /root/.flowise,
+      # pas /home/node/.flowise. Un montage ailleurs laisse la base dans la couche du conteneur,
+      # effacée à chaque recréation (docker compose up --build).
+      - flowise_data:/root/.flowise
     environment:
       PORT: "3000"
       FLOWISE_SECRETKEY_OVERWRITE: ${FLOWISE_SECRETKEY_OVERWRITE:?FLOWISE_SECRETKEY_OVERWRITE manquante, voir .env.example}
