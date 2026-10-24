@@ -1,48 +1,60 @@
 # Flowise × Hermes Agent
 
-Éditeur visuel (Flowise) pour piloter Hermes Agent. README complet à venir (étape 6).
+Éditeur visuel de scénarios (Flowise) qui pilote [Hermes Agent](https://hermes-agent.nousresearch.com/docs) :
+Hermes comme modèle, deux nœuds Flowise dédiés (**Hermes Task**, **Hermes Schedule**) et le déclenchement planifié
+de flows Flowise par le planificateur de Hermes, avec livraison Telegram.
 
-## Démarrage rapide (étape 1)
+```
+Planificateur Hermes ──(script, sans LLM)──▶ Flowise (flow) ──▶ nœud Hermes Task ──▶ Hermes (agent + recherche web)
+        │                                                                                      │
+        └──────────────── livre la sortie (Telegram, Slack…) ◀──────────────────────────────────┘
+```
+
+## Installation
 
 Prérequis : Docker Desktop.
 
 ```bash
-cp .env.example .env            # puis renseigner les deux clés (openssl rand -hex 32)
-docker compose run --rm -it hermes setup   # configuration initiale de Hermes (une fois)
-docker compose up -d
-curl http://localhost:8642/health          # Hermes
-curl http://localhost:3000/api/v1/ping     # Flowise
+cp .env.example .env     # renseigner API_SERVER_KEY et FLOWISE_SECRETKEY_OVERWRITE (openssl rand -hex 32)
+docker compose run --rm -it hermes setup      # une seule fois : fournisseur LLM, etc.
+docker compose up -d --build
+curl http://localhost:8642/health             # Hermes     -> {"status": "ok", …}
+curl http://localhost:3000/api/v1/ping        # Flowise    -> pong
 ```
 
-## Connexion de base : Hermes comme modèle dans Flowise (étape 2)
+Flowise : <http://localhost:3000> (créer le compte administrateur à la première visite).
+Les ports ne sont exposés que sur `127.0.0.1`.
 
-1. Flowise → **Credentials → OpenAI API** : nom `Hermes API`, clé = `API_SERVER_KEY` du `.env`.
-2. Nouveau chatflow : **ChatOpenAI Custom** + **Buffer Memory** → **Conversation Chain**.
-   - Model Name : `hermes-agent` (le nœud ChatOpenAI standard impose une liste de modèles OpenAI).
-   - BasePath : `http://hermes:8642/v1` (nom du service Compose, pas `localhost`).
-3. Test dans le chat : « Réponds uniquement : pong » → `pong`.
+## Configuration
 
-Hermes configure son fournisseur LLM via `docker compose run --rm -it hermes setup` (ou `... hermes model`).
+| Variable (`.env`) | Rôle |
+|---|---|
+| `API_SERVER_KEY` | Clé Bearer de l'API de Hermes (obligatoire). |
+| `FLOWISE_SECRETKEY_OVERWRITE` | Clé de chiffrement des credentials Flowise (obligatoire ; la garder identique d'une installation à l'autre). |
+| `FLOWISE_API_KEY` | Optionnelle : clé Flowise utilisée par les scripts cron si vos flows sont protégés. |
+| `HERMES_IMAGE_TAG`, `FLOWISE_IMAGE_TAG` | Versions des images. Flowise est épinglé en **3.1.3** : la 3.1.4 (`latest`) plante au démarrage (`this.db.exec is not a function`, module `connect-sqlite3`). |
 
-## Nœud Hermes Task (étape 3)
+**Telegram** (pour la livraison) : créer un bot avec @BotFather, relever votre identifiant avec @userinfobot, puis
+`docker compose run --rm -it hermes gateway setup` (token, utilisateur autorisé, canal d'accueil) et `docker compose restart hermes`.
+N'autorisez que votre propre identifiant : l'agent exécute des commandes dans son conteneur.
 
-Les nœuds personnalisés sont dans `nodes/` (TypeScript strict). Flowise ne charge les nœuds que depuis
-`flowise-components/dist` : l'image `docker/flowise/Dockerfile` compile `nodes/` et les y copie.
+**Credential Flowise** : *Credentials → Hermes API* — URL `http://hermes:8642` (nom du service Compose, pas `localhost`),
+clé = `API_SERVER_KEY`.
 
-```bash
-docker compose up -d --build     # reconstruit l'image Flowise avec les nœuds
-cd nodes && npm install && npm test   # tests unitaires (HTTP mocké)
-```
+## Utilisation
 
-Dans Flowise : **Credentials → Hermes API** (URL `http://hermes:8642`, clé = `API_SERVER_KEY`),
-puis dans un **Agentflow** : nœud **Hermes Task** (catégorie « Agent Flows »).
-Le texte de la réponse est disponible dans `{{ hermesTaskAgentflow_0.output.content }}`.
+### Hermes comme modèle (Chatflow)
+**ChatOpenAI Custom** (credential *OpenAI API* contenant `API_SERVER_KEY`) : Model Name `hermes-agent`,
+BasePath `http://hermes:8642/v1`, puis Buffer Memory → Conversation Chain. Le nœud ChatOpenAI standard impose une liste de modèles OpenAI.
 
-## Nœud Hermes Schedule (étape 4)
+### Nœud Hermes Task (Agentflow)
+Envoie une tâche à Hermes et renvoie sa réponse. Champs : Tâche, Instructions, ID de session, Délai (300 s par défaut).
+Sortie : `{{ hermesTaskAgentflow_0 }}` (texte) ; le raisonnement et la consommation sont dans `output.reasoning` et `output.usage`.
+Un flow Agentflow doit être de la forme **Start → … → Direct Reply** : un nœud isolé donne « Multiple starting nodes are not allowed ».
 
-Pilote les tâches planifiées de Hermes via son API (`/api/jobs`). Opérations : **Créer, Lister, Mettre en pause,
-Reprendre, Exécuter maintenant, Supprimer**. Une tâche existante se désigne par son identifiant (12 caractères
-hexadécimaux) ou par son nom.
+### Nœud Hermes Schedule (Agentflow)
+Pilote les tâches planifiées de Hermes via `/api/jobs` : **Créer, Lister, Mettre en pause, Reprendre, Exécuter maintenant, Supprimer**.
+Une tâche existante se désigne par son identifiant (12 caractères hexadécimaux) ou son nom.
 
 | Champ (création) | Exemple |
 |---|---|
@@ -51,78 +63,71 @@ hexadécimaux) ou par son nom.
 | Prompt (5000 car. max) | instruction autonome exécutée par Hermes à chaque déclenchement |
 | Livraison | `local` (défaut), `telegram`, `telegram:<chat_id>`, `slack`, `all` |
 
-Sortie : `{{ hermesScheduleAgentflow_0.output.content }}` (texte), `.output.job` / `.output.jobs` (objets).
-Les dates affichées par Hermes sont en UTC.
+Hermes planifie en **UTC** : `daily at 7am` = 9 h en heure d'été de Paris.
 
-## Déclenchement planifié d'un flow Flowise (étape 5)
+### Déclencher un flow Flowise à heure fixe
+Option retenue : un job Hermes **`--no-agent --script`** (sans LLM, sans jeton) dont le script appelle
+`POST /api/v1/prediction/<ID>`. Écartées : job avec prompt (jetons, non déterministe), planificateur natif de Flowise
+(l'option « Schedule Input » existe dans le nœud Start de la 3.1.3 mais je n'ai trouvé aucun code de planification côté serveur), cron de l'hôte.
 
-### Options comparées
-
-| Option | Verdict |
-|---|---|
-| **Job Hermes `--no-agent --script`** : le planificateur de Hermes exécute un script qui appelle `POST /api/v1/prediction/<id>` ; la sortie est livrée (Telegram, Slack...) | **Retenue.** Sans LLM ni jeton consommé, déterministe, silencieux si le script n'affiche rien, alerte automatique en cas d'erreur. |
-| Job Hermes avec prompt (l'agent appelle l'API) | Consomme des jetons à chaque tick, résultat non déterministe. |
-| Planificateur natif de Flowise (nœud Start → « Schedule Input ») | L'option existe dans l'éditeur de la 3.1.3, mais je n'ai trouvé aucun code de planification côté serveur dans cette version : non fiable, non testé. |
-| Cron de l'hôte | Un composant de plus à maintenir. |
-
-### Mise en place
-
-1. Dans Flowise, ouvrir le flow → `</>` : l'ID est dans l'URL `/api/v1/prediction/<ID>`.
-2. Copier le modèle et le renseigner (ID du flow et question) :
+1. Copier `hermes/scripts/flowise_trigger.example.py` sous un autre nom, y mettre l'ID du flow (Flowise → flow → `</>`) et la question.
+2. Créer le job (le dossier `hermes/scripts` est monté en lecture seule dans Hermes) :
    ```bash
-   cp hermes/scripts/flowise_trigger.example.py hermes/scripts/digest_quotidien.py
+   docker compose exec hermes hermes cron create "daily at 5am" --no-agent \
+       --script digest_quotidien.py --deliver telegram --name "Digest IA"
    ```
-3. Créer la tâche (le dossier `hermes/scripts` est monté dans Hermes en lecture seule) :
-   ```bash
-   docker compose exec hermes hermes cron create "daily at 7am" --no-agent \
-       --script digest_quotidien.py --deliver telegram --name "Digest quotidien"
-   ```
-4. Tester tout de suite : `docker compose exec hermes hermes cron run "Digest quotidien"`.
+3. Tester : `docker compose exec hermes hermes cron run "Digest IA"`.
 
-Règles du script (`hermes/scripts/flowise_run.py`) : la réponse du flow est livrée telle quelle ;
-si le flow répond **`NO_ALERT`** (ou vide), rien n'est envoyé ; une erreur (Flowise arrêté, clé refusée, flow inconnu)
-donne un code de sortie 1 et Hermes livre une alerte. Variables : `FLOWISE_URL` (défaut `http://flowise:3000`),
-`FLOWISE_API_KEY` (optionnelle, clé créée dans Flowise > API Keys).
+Règles de `flowise_run.py` : la réponse du flow est livrée telle quelle ; si elle est vide ou **commence par `NO_ALERT`**
+(guillemets et ponctuation ignorés), rien n'est envoyé ; toute erreur (Flowise arrêté, clé refusée, flow inconnu, délai)
+donne le code de sortie 1 et Hermes livre une alerte.
+**Limite :** `/api/jobs` ne sait pas créer de tâche « script » (pas de champ `script`) ; elle se crée en CLI. Le nœud
+Hermes Schedule peut ensuite la lister, la suspendre, la relancer ou la supprimer. Vos scripts contenant des ID de flows sont ignorés par Git.
 
-**Limite :** l'API de Hermes (`/api/jobs`) ne permet pas de créer une tâche « script ». Elle se crée en CLI ;
-le nœud **Hermes Schedule** peut ensuite la lister, la mettre en pause, la reprendre, l'exécuter ou la supprimer.
+## Scénarios d'exemple
 
-Tests du script : `python3 -I -m unittest discover -s hermes/tests`.
+Dans `examples/` (régénérables : `python3 examples/build_examples.py`). Import : Agentflows → nouvel Agentflow → ⚙ → *Load Agents*,
+puis sélectionner le credential « Hermes API » sur le nœud Hermes Task.
 
-## Dépannage : données Flowise perdues après un `docker compose up --build`
-
-L'image Flowise 3.1.3 tourne en **root** : ses données (base SQLite, clés API, credentials, flows) sont dans
-`/root/.flowise`. Le volume `flowise_data` doit être monté **là** (c'est le cas dans `docker-compose.yml`).
-Monté sur `/home/node/.flowise`, il restait vide et les données disparaissaient à chaque recréation du conteneur.
-
-Sauvegarde manuelle :
-```bash
-docker compose stop flowise && docker cp flowise:/root/.flowise ./sauvegarde-flowise && docker compose start flowise
-```
-Garder `FLOWISE_SECRETKEY_OVERWRITE` identique d'une installation à l'autre, sinon les credentials ne se déchiffrent plus.
-
-## Scénarios d'exemple (étape 6)
-
-Les flows sont dans `examples/` (régénérables avec `python3 examples/build_examples.py`).
-
-| Fichier | Principe | Question passée par le script cron |
+| Fichier | Principe | Question passée par le script |
 |---|---|---|
 | `01-digest-quotidien.json` | Start → **Hermes Task** (recherche web + résumé) → Direct Reply | le sujet : `intelligence artificielle` |
 | `02-surveillance-bitcoin.json` | Start → **Hermes Task** (vérifie un critère) → Direct Reply | le critère : `le prix du Bitcoin dépasse 100000 USD` |
 
-Dans les deux flows, `{{ question }}` est la question reçue ; le même flow sert donc à plusieurs sujets ou seuils.
-La surveillance répond **`NO_ALERT`** quand le critère n'est pas rempli : le script cron n'envoie alors rien.
+La surveillance répond `NO_ALERT` quand le critère n'est pas rempli : rien n'est envoyé. `{{ question }}` étant la question reçue,
+un même flow sert à plusieurs sujets ou seuils.
 
-**Import :** Agentflows → nouvel Agentflow → ⚙ → *Load Agents* → choisir le JSON, puis sélectionner le credential « Hermes API »
-sur le nœud Hermes Task et enregistrer. Si l'import échoue, recréer Start → Hermes Task → Direct Reply à la main :
-le texte du champ « Tâche » et des « Instructions » est dans le JSON (clés `hermesPrompt` et `hermesInstructions`) ;
-Direct Reply affiche `{{ hermesTaskAgentflow_0 }}`.
+Si l'import échoue : recréer Start → Hermes Task → Direct Reply (message `{{ hermesTaskAgentflow_0 }}`) en copiant les
+textes `hermesPrompt` et `hermesInstructions` du JSON.
 
-**Planification :** pour chaque flow, copier le modèle de script (ID du flow + question), puis :
+## Développement et tests
+
 ```bash
-docker compose exec hermes hermes cron create "daily at 7am" --no-agent \
-    --script digest_quotidien.py --deliver telegram --name "Digest IA"
-docker compose exec hermes hermes cron create "every 1h" --no-agent \
-    --script surveillance_bitcoin.py --deliver telegram --name "Surveillance Bitcoin"
+cd nodes && npm install && npm test          # 59 tests TypeScript (HTTP mocké), compilation stricte : npm run typecheck
+python3 -I -m unittest discover -s hermes/tests   # 15 tests du script de déclenchement
 ```
-(`hermes/scripts/*.py` hors `flowise_run.py` et le modèle sont à créer par vous : ils contiennent l'ID de **votre** flow.)
+
+Structure : `nodes/` (nœuds et credential en TypeScript strict ; `src/nodes/shared/` = client HTTP sans dépendance à Flowise),
+`docker/flowise/Dockerfile` (compile les nœuds et les copie dans `flowise-components/dist`), `hermes/scripts/`, `examples/`.
+
+**Pourquoi une image dérivée plutôt qu'un fork :** Flowise ne charge les nœuds que depuis `flowise-components/dist/nodes`
+et `dist/credentials` (`NodesPool.ts`, aucune variable pour un autre chemin). Le dépôt reste léger et on met Flowise à jour en changeant le tag.
+
+## Dépannage
+
+| Symptôme | Cause / remède |
+|---|---|
+| Données Flowise perdues après `up --build` | L'image 3.1.3 tourne en **root** : ses données sont dans `/root/.flowise`, où le volume `flowise_data` est monté. Sauvegarde : `docker compose stop flowise && docker cp flowise:/root/.flowise ./sauvegarde-flowise && docker compose start flowise`. |
+| « Credentials could not be decrypted » | `FLOWISE_SECRETKEY_OVERWRITE` a changé. |
+| Flowise redémarre en boucle (`this.db.exec is not a function`) | Version 3.1.4 / `latest` : rester sur 3.1.3. |
+| « Clé API refusée par Hermes (HTTP 401) » | La clé du credential ≠ `API_SERVER_KEY`. |
+| « Hermes est injoignable » | `docker compose ps` ; URL du credential = `http://hermes:8642`. |
+| « Multiple starting nodes are not allowed » | Il manque Start (ou un lien) dans l'Agentflow. |
+| Une tâche planifiée ne livre rien | Vérifier `last_status` / `last_delivery_error` : `curl -H "Authorization: Bearer $API_SERVER_KEY" localhost:8642/api/jobs`. Sortie vide ou `NO_ALERT` = silence voulu. |
+| Script cron « Script not found » juste après sa création | Attendre quelques secondes (synchronisation du dossier monté) et relancer. |
+| Le nouveau nœud n'apparaît pas | `docker compose up -d --build` puis recharger la page. |
+
+## Limites connues
+- Chaque appel à Hermes consomme ~12 000 tokens de prompt (prompt système et outils) : une surveillance horaire pèse ~290 000 tokens/jour.
+- Le paramètre `X-Hermes-Session-Id` (ID de session du nœud Hermes Task) est envoyé mais son effet n'a pas été vérifié.
+- L'opération « Exécuter maintenant » de Hermes Schedule et l'import des JSON d'exemple dans l'interface n'ont pas été testés par l'auteur dans l'interface Flowise (les appels sous-jacents l'ont été).
