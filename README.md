@@ -74,7 +74,29 @@ Opérations de définition :
 - **Lire** : renvoie la définition *actuelle* dans Hermes (planning, prompt, livraison, statut) pour l'afficher ou l'utiliser dans le flow :
   c'est l'option où **Hermes fait foi**.
 
-Un nœud ne peut pas être mis à jour automatiquement depuis Hermes : choisir donc, par job, qui fait foi (Synchroniser = le flow, Lire = Hermes).
+### Synchronisation automatique dans les deux sens (flow ↔ job)
+
+Un job « **Sync Flowise-Hermes** » (toutes les 5 minutes, sans LLM) exécute `hermes/scripts/sync_flows.py`. Pour chaque nœud Hermes Schedule en
+opération **Synchroniser**, il compare le nœud et le job à l'état de la dernière synchronisation (fusion à trois voies) :
+
+| Ce qui a changé | Effet |
+|---|---|
+| le nœud (dans Flowise) | le job Hermes est mis à jour (nom, planning, prompt, livraison) |
+| le job (Telegram, tableau de bord, CLI) | le nœud est réécrit via l'API Flowise (`PUT /chatflows/{id}`) |
+| les deux depuis la dernière fois | **conflit** : rien n'est écrit, un message Telegram l'indique (une seule fois) ; trancher avec `--prefer` |
+| rien | silence |
+
+```bash
+docker compose exec hermes python3 /opt/data/scripts/sync_flows.py --dry-run          # simulation
+docker compose exec hermes python3 /opt/data/scripts/sync_flows.py --prefer hermes     # ou flow : trancher un conflit
+```
+
+Règles : **Hermes fait foi au premier lien** (c'est lui qui exécute le job) ; le script ne **crée ni ne supprime** jamais de job
+(un nœud sans job est signalé « non lié » : renseigner « Tâche existante » ou exécuter le flow) ; le lien est mémorisé par l'identifiant
+du job (écrit dans « Tâche existante »), donc un renommage d'un côté ne crée pas de doublon. L'état est dans `/opt/data/flowise_sync_state.json`.
+Nécessite `FLOWISE_API_KEY` (Flowise > API Keys) dans le `.env`.
+**Précaution :** si vous avez le flow ouvert dans l'éditeur Flowise pendant une synchronisation Hermes → flow, rechargez la page avant de modifier,
+sinon votre prochain enregistrement écrasera la mise à jour.
 
 Hermes planifie en **UTC** : `daily at 7am` = 9 h en heure d'été de Paris.
 
@@ -129,7 +151,7 @@ textes `hermesPrompt` et `hermesInstructions` du JSON.
 
 ```bash
 cd nodes && npm install && npm test          # 65 tests TypeScript (HTTP mocké), compilation stricte : npm run typecheck
-python3 -I -m unittest discover -s hermes/tests   # 21 tests du script de déclenchement
+python3 -I -m unittest discover -s hermes/tests   # 37 tests des scripts de déclenchement
 ```
 
 Structure : `nodes/` (nœuds et credential en TypeScript strict ; `src/nodes/shared/` = client HTTP sans dépendance à Flowise),

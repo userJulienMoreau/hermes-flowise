@@ -8,3 +8,5 @@ dist/
 hermes/scripts/*.py
 !hermes/scripts/flowise_run.py
 !hermes/scripts/flowise_trigger.example.py
+!hermes/scripts/flow_sync.py
+!hermes/scripts/sync_flows.py
