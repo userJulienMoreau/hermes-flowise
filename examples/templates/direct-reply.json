@@ -1,0 +1,48 @@
+{
+ "id": "directReplyAgentflow_0",
+ "position": {
+  "x": 182,
+  "y": 99.125
+ },
+ "data": {
+  "label": "Direct Reply 0",
+  "name": "directReplyAgentflow",
+  "version": 1,
+  "type": "DirectReply",
+  "category": "Agent Flows",
+  "description": "Directly reply to the user with a message",
+  "baseClasses": [
+   "DirectReply"
+  ],
+  "color": "#4DDBBB",
+  "hideOutput": true,
+  "inputs": {
+   "directReplyMessage": "{{hermesScheduleAgentflow_0}} "
+  },
+  "filePath": "/usr/local/lib/node_modules/flowise/node_modules/flowise-components/dist/nodes/agentflow/DirectReply/DirectReply.js",
+  "inputAnchors": [],
+  "inputParams": [
+   {
+    "label": "Message",
+    "name": "directReplyMessage",
+    "type": "string",
+    "rows": 4,
+    "acceptVariable": true,
+    "id": "directReplyAgentflow_0-input-directReplyMessage-string",
+    "display": true
+   }
+  ],
+  "outputs": {},
+  "outputAnchors": [],
+  "id": "directReplyAgentflow_0",
+  "selected": false
+ },
+ "type": "agentFlow",
+ "width": 163,
+ "height": 66,
+ "selected": false,
+ "positionAbsolute": {
+  "x": 182,
+  "y": 99.125
+ }
+}

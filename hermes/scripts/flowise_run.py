@@ -3,7 +3,8 @@
 Hermes exécute le script à l'heure prévue et livre sa sortie standard (Telegram, Slack...). Règles de Hermes :
   - sortie vide        -> exécution silencieuse (rien n'est envoyé) ;
   - code de sortie != 0 -> alerte d'erreur livrée.
-Ce module ajoute : si le flow répond « NO_ALERT » (ou rien), la sortie est vide -> pas de message.
+Ce module ajoute : si la réponse du flow commence par « NO_ALERT » (ou est vide), la sortie est vide -> pas de message.
+Les guillemets, astérisques et ponctuation autour du mot sont ignorés (les petits modèles en ajoutent souvent).
 Bibliothèque standard uniquement (le script tourne dans l'environnement Python de Hermes).
 
 Utilisation : copier flowise_trigger.example.py sous un autre nom, y mettre l'ID du flow et la question.
@@ -18,6 +19,11 @@ import urllib.request
 SILENT_MARKER = "NO_ALERT"
 DEFAULT_URL = "http://flowise:3000"
 DEFAULT_TIMEOUT_S = 300
+
+
+def is_silent(text):
+    """Vrai si le texte est vide ou commence par NO_ALERT (hors guillemets, étoiles, ponctuation)."""
+    return text.lstrip(" \t\r\n\"'`*_#>-.:").upper().startswith(SILENT_MARKER) or not text.strip()
 
 
 class FlowiseError(Exception):
@@ -65,7 +71,7 @@ def run_flow(flow_id, question, *, base_url=None, api_key=None, override_config=
         raise FlowiseError(f"Réponse de Flowise sans champ « text » : {body[:200]}")
 
     text = text.strip()
-    return "" if text.upper() == SILENT_MARKER else text
+    return "" if is_silent(text) else text
 
 
 def main(flow_id, question, **kwargs):

@@ -68,6 +68,15 @@ class RunFlowTest(unittest.TestCase):
         for value in ("NO_ALERT", " no_alert\n", ""):
             self.assertEqual(flowise_run.run_flow("abc", "q", opener=opener_returning({"text": value})), "")
 
+    def test_no_alert_tolere_la_mise_en_forme_et_une_explication(self):
+        for value in ("`NO_ALERT`", '"NO_ALERT".', "**NO_ALERT**", "NO_ALERT : le prix est de 94 000 $", "\n  No_Alert"):
+            with self.subTest(value=value):
+                self.assertEqual(flowise_run.run_flow("abc", "q", opener=opener_returning({"text": value})), "")
+
+    def test_une_alerte_contenant_le_mot_ailleurs_reste_livree(self):
+        text = "Alerte : ne répondez pas NO_ALERT, le prix dépasse le seuil."
+        self.assertEqual(flowise_run.run_flow("abc", "q", opener=opener_returning({"text": text})), text)
+
     def test_id_manquant_ou_modele_non_rempli(self):
         for flow_id in ("", "COLLER-L-ID-DU-FLOW"):
             with self.assertRaisesRegex(flowise_run.FlowiseError, "ID du flow"):

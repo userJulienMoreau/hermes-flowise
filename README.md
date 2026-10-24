@@ -100,3 +100,29 @@ Sauvegarde manuelle :
 docker compose stop flowise && docker cp flowise:/root/.flowise ./sauvegarde-flowise && docker compose start flowise
 ```
 Garder `FLOWISE_SECRETKEY_OVERWRITE` identique d'une installation à l'autre, sinon les credentials ne se déchiffrent plus.
+
+## Scénarios d'exemple (étape 6)
+
+Les flows sont dans `examples/` (régénérables avec `python3 examples/build_examples.py`).
+
+| Fichier | Principe | Question passée par le script cron |
+|---|---|---|
+| `01-digest-quotidien.json` | Start → **Hermes Task** (recherche web + résumé) → Direct Reply | le sujet : `intelligence artificielle` |
+| `02-surveillance-bitcoin.json` | Start → **Hermes Task** (vérifie un critère) → Direct Reply | le critère : `le prix du Bitcoin dépasse 100000 USD` |
+
+Dans les deux flows, `{{ question }}` est la question reçue ; le même flow sert donc à plusieurs sujets ou seuils.
+La surveillance répond **`NO_ALERT`** quand le critère n'est pas rempli : le script cron n'envoie alors rien.
+
+**Import :** Agentflows → nouvel Agentflow → ⚙ → *Load Agents* → choisir le JSON, puis sélectionner le credential « Hermes API »
+sur le nœud Hermes Task et enregistrer. Si l'import échoue, recréer Start → Hermes Task → Direct Reply à la main :
+le texte du champ « Tâche » et des « Instructions » est dans le JSON (clés `hermesPrompt` et `hermesInstructions`) ;
+Direct Reply affiche `{{ hermesTaskAgentflow_0 }}`.
+
+**Planification :** pour chaque flow, copier le modèle de script (ID du flow + question), puis :
+```bash
+docker compose exec hermes hermes cron create "daily at 7am" --no-agent \
+    --script digest_quotidien.py --deliver telegram --name "Digest IA"
+docker compose exec hermes hermes cron create "every 1h" --no-agent \
+    --script surveillance_bitcoin.py --deliver telegram --name "Surveillance Bitcoin"
+```
+(`hermes/scripts/*.py` hors `flowise_run.py` et le modèle sont à créer par vous : ils contiennent l'ID de **votre** flow.)
