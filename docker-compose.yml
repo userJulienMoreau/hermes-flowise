@@ -28,6 +28,8 @@ services:
       HERMES_DASHBOARD: "1"
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${HERMES_DASHBOARD_USERNAME:-admin}
       HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${HERMES_DASHBOARD_PASSWORD:?HERMES_DASHBOARD_PASSWORD manquant, voir .env.example}
+      # Lecture du prompt du job par flowise_run.py (le nom API_SERVER_KEY est filtré des scripts cron, pas celui-ci).
+      HERMES_JOBS_API_KEY: ${API_SERVER_KEY}
       FLOWISE_URL: http://flowise:3000
       FLOWISE_API_KEY: ${FLOWISE_API_KEY:-}
 

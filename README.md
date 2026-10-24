@@ -74,13 +74,25 @@ Option retenue : un job Hermes **`--no-agent --script`** (sans LLM, sans jeton) 
 `POST /api/v1/prediction/<ID>`. Écartées : job avec prompt (jetons, non déterministe), planificateur natif de Flowise
 (l'option « Schedule Input » existe dans le nœud Start de la 3.1.3 mais je n'ai trouvé aucun code de planification côté serveur), cron de l'hôte.
 
-1. Copier `hermes/scripts/flowise_trigger.example.py` sous un autre nom, y mettre l'ID du flow (Flowise → flow → `</>`) et la question.
-2. Créer le job (le dossier `hermes/scripts` est monté en lecture seule dans Hermes) :
+1. Copier `hermes/scripts/flowise_trigger.example.py` sous un autre nom et y mettre l'ID du flow (Flowise → flow → `</>`).
+2. Créer le job, dont le **prompt est la question envoyée au flow** (le dossier `hermes/scripts` est monté en lecture seule dans Hermes) :
    ```bash
-   docker compose exec hermes hermes cron create "daily at 5am" --no-agent \
+   docker compose exec hermes hermes cron create "daily at 5am" "intelligence artificielle" --no-agent \
        --script digest_quotidien.py --deliver telegram --name "Digest IA"
    ```
 3. Tester : `docker compose exec hermes hermes cron run "Digest IA"`.
+
+**Une seule source de vérité** (rien à synchroniser entre Hermes et Flowise) :
+
+| Élément | Défini à un seul endroit |
+|---|---|
+| Logique, consignes, mise en forme de la réponse | le **flow** Flowise |
+| Planning, livraison, activation, pause | le **job** Hermes |
+| Sujet / critère (question envoyée au flow) | le **prompt du job** Hermes |
+
+Le script retrouve son job par son nom de fichier (un script = un job) et lit son prompt via l'API de Hermes : changer le sujet
+par Telegram (« change le sujet du Digest IA en robotique »), dans le tableau de bord, en CLI (`hermes cron edit`) ou avec le nœud
+Hermes Schedule est pris en compte à la prochaine exécution. Modifier le flow dans Flowise l'est aussi, sans toucher au job.
 
 Règles de `flowise_run.py` : la réponse du flow est livrée telle quelle ; si elle est vide ou **commence par `NO_ALERT`**
 (guillemets et ponctuation ignorés), rien n'est envoyé ; toute erreur (Flowise arrêté, clé refusée, flow inconnu, délai)
@@ -93,7 +105,7 @@ Hermes Schedule peut ensuite la lister, la suspendre, la relancer ou la supprime
 Dans `examples/` (régénérables : `python3 examples/build_examples.py`). Import : Agentflows → nouvel Agentflow → ⚙ → *Load Agents*,
 puis sélectionner le credential « Hermes API » sur le nœud Hermes Task.
 
-| Fichier | Principe | Question passée par le script |
+| Fichier | Principe | Prompt du job Hermes (= `{{ question }}`) |
 |---|---|---|
 | `01-digest-quotidien.json` | Start → **Hermes Task** (recherche web + résumé) → Direct Reply | le sujet : `intelligence artificielle` |
 | `02-surveillance-bitcoin.json` | Start → **Hermes Task** (vérifie un critère) → Direct Reply | le critère : `le prix du Bitcoin dépasse 100000 USD` |

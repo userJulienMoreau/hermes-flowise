@@ -21,7 +21,7 @@ class FakeResponse(io.BytesIO):
 def opener_returning(payload, capture=None):
     def opener(request, timeout=None):
         if capture is not None:
-            capture.update(url=request.full_url, headers=dict(request.header_items()), body=json.loads(request.data), timeout=timeout)
+            capture.update(url=request.full_url, headers=dict(request.header_items()), body=json.loads(request.data) if request.data else None, timeout=timeout)
         return FakeResponse(payload if isinstance(payload, bytes) else json.dumps(payload).encode())
 
     return opener
@@ -105,7 +105,60 @@ class RunFlowTest(unittest.TestCase):
                 flowise_run.run_flow("abc", "q", opener=opener_returning(payload))
 
 
+def jobs_payload(*jobs):
+    return {"jobs": list(jobs)}
+
+
+class JobQuestionTest(unittest.TestCase):
+    def test_lit_le_prompt_du_job_du_script(self):
+        seen = {}
+        payload = jobs_payload({"id": "a", "name": "Autre", "script": "autre.py", "prompt": "non"},
+                               {"id": "b", "name": "Digest", "script": "digest.py", "prompt": "  IA  "})
+        q = flowise_run.job_question("/opt/data/scripts/digest.py", base_url="http://h:1/", api_key="k", opener=opener_returning(payload, seen))
+        self.assertEqual(q, "IA")
+        self.assertEqual(seen["url"], "http://h:1/api/jobs?include_disabled=true")
+        self.assertEqual(seen["headers"]["Authorization"], "Bearer k")
+
+    def test_job_introuvable_ambigu_ou_sans_prompt(self):
+        cases = [
+            (jobs_payload({"id": "a", "script": "x.py", "prompt": "q"}), "Aucun job.*digest.py"),
+            (jobs_payload({"id": "a", "name": "A", "script": "digest.py", "prompt": "q"}, {"id": "b", "name": "B", "script": "digest.py", "prompt": "q"}), "Plusieurs jobs.*A, B"),
+            (jobs_payload({"id": "a", "name": "A", "script": "digest.py", "prompt": " "}), "n'a pas de prompt"),
+        ]
+        for payload, pattern in cases:
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(flowise_run.FlowiseError, pattern):
+                flowise_run.job_question("digest.py", opener=opener_returning(payload))
+
+    def test_erreurs_d_acces_a_l_api(self):
+        err = urllib.error.HTTPError("http://h", 401, "no", {}, io.BytesIO(b"{}"))
+        with self.assertRaisesRegex(flowise_run.FlowiseError, "HTTP 401.*HERMES_JOBS_API_KEY"):
+            flowise_run.job_question("digest.py", opener=opener_raising(err))
+        with self.assertRaisesRegex(flowise_run.FlowiseError, "Impossible de lire.*refused"):
+            flowise_run.job_question("digest.py", opener=opener_raising(urllib.error.URLError("refused")))
+
+
 class MainTest(unittest.TestCase):
+    def test_question_lue_dans_le_job_si_absente(self):
+        out = io.StringIO()
+        with mock.patch("flowise_run.job_question", return_value="sujet du job") as jq, \
+                mock.patch("flowise_run.run_flow", return_value="ok") as rf, mock.patch("sys.stdout", out):
+            flowise_run.main("abc")
+        rf.assert_called_once_with("abc", "sujet du job")
+        self.assertTrue(jq.called)
+
+    def test_question_explicite_prioritaire(self):
+        with mock.patch("flowise_run.job_question") as jq, mock.patch("flowise_run.run_flow", return_value="") as rf:
+            flowise_run.main("abc", "fixe")
+        rf.assert_called_once_with("abc", "fixe")
+        jq.assert_not_called()
+
+    def test_erreur_de_lecture_du_job_donne_code_1(self):
+        err = io.StringIO()
+        with mock.patch("flowise_run.job_question", side_effect=flowise_run.FlowiseError("pas de job")), mock.patch("sys.stderr", err):
+            with self.assertRaises(SystemExit):
+                flowise_run.main("abc")
+        self.assertIn("pas de job", err.getvalue())
+
     def test_affiche_le_texte(self):
         out = io.StringIO()
         with mock.patch("flowise_run.run_flow", return_value="Résultat"), mock.patch("sys.stdout", out):
