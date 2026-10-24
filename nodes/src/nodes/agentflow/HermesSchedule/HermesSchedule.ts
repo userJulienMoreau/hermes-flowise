@@ -1,12 +1,13 @@
 import { ICommonObject, INode, INodeData, INodeParams, getCredentialData, getCredentialParam } from 'flowise-components'
 import { HermesConnection, HermesError } from '../../shared/hermesClient'
-import { createJob, describeJob, HermesJob, jobAction, JobAction, listJobs } from '../../shared/hermesJobs'
+import { createJob, describeJob, getJob, HermesJob, jobAction, JobAction, listJobs, syncJob } from '../../shared/hermesJobs'
 
 const DEFAULT_TIMEOUT_S = 30
 
-type Operation = 'create' | 'list' | 'delete' | 'pause' | 'resume' | 'run'
+type Operation = 'create' | 'sync' | 'get' | 'list' | 'delete' | 'pause' | 'resume' | 'run'
 
-const REF_OPERATIONS: Operation[] = ['delete', 'pause', 'resume', 'run']
+const REF_OPERATIONS: Operation[] = ['get', 'delete', 'pause', 'resume', 'run']
+const DEFINITION_OPERATIONS: Operation[] = ['create', 'sync']
 
 class HermesSchedule_Agentflow implements INode {
     label: string
@@ -43,7 +44,9 @@ class HermesSchedule_Agentflow implements INode {
                 name: 'hermesOperation',
                 type: 'options',
                 options: [
-                    { label: 'Créer', name: 'create' },
+                    { label: 'Créer (refuse si le nom existe déjà)', name: 'create' },
+                    { label: 'Synchroniser (met à jour ou crée)', name: 'sync' },
+                    { label: 'Lire (définition actuelle dans Hermes)', name: 'get' },
                     { label: 'Lister', name: 'list' },
                     { label: 'Mettre en pause', name: 'pause' },
                     { label: 'Reprendre', name: 'resume' },
@@ -57,7 +60,7 @@ class HermesSchedule_Agentflow implements INode {
                 name: 'hermesJobName',
                 type: 'string',
                 acceptVariable: true,
-                show: { hermesOperation: ['create'] }
+                show: { hermesOperation: DEFINITION_OPERATIONS }
             },
             {
                 label: 'Planning',
@@ -66,7 +69,7 @@ class HermesSchedule_Agentflow implements INode {
                 acceptVariable: true,
                 placeholder: 'daily at 7am  |  every 1h  |  0 9 * * MON-FRI',
                 description: 'Formats Hermes : « every 2h », « daily at 7am », expression cron, « in 30m », date ISO.',
-                show: { hermesOperation: ['create'] }
+                show: { hermesOperation: DEFINITION_OPERATIONS }
             },
             {
                 label: 'Prompt de la tâche',
@@ -75,7 +78,7 @@ class HermesSchedule_Agentflow implements INode {
                 rows: 4,
                 acceptVariable: true,
                 description: 'Instruction autonome exécutée par Hermes à chaque déclenchement (5000 caractères maximum).',
-                show: { hermesOperation: ['create'] }
+                show: { hermesOperation: DEFINITION_OPERATIONS }
             },
             {
                 label: 'Livraison',
@@ -85,7 +88,7 @@ class HermesSchedule_Agentflow implements INode {
                 optional: true,
                 placeholder: 'local | telegram | telegram:123456 | slack | all',
                 description: 'Canal configuré dans Hermes. « local » enregistre seulement la sortie.',
-                show: { hermesOperation: ['create'] }
+                show: { hermesOperation: DEFINITION_OPERATIONS }
             },
             {
                 label: 'Nombre de répétitions',
@@ -93,7 +96,7 @@ class HermesSchedule_Agentflow implements INode {
                 type: 'number',
                 optional: true,
                 description: 'Vide = illimité.',
-                show: { hermesOperation: ['create'] }
+                show: { hermesOperation: DEFINITION_OPERATIONS }
             },
             {
                 label: 'Tâche (ID ou nom)',
@@ -101,6 +104,15 @@ class HermesSchedule_Agentflow implements INode {
                 type: 'string',
                 acceptVariable: true,
                 show: { hermesOperation: REF_OPERATIONS }
+            },
+            {
+                label: 'Tâche existante à mettre à jour (ID ou nom)',
+                name: 'hermesSyncRef',
+                type: 'string',
+                acceptVariable: true,
+                optional: true,
+                description: 'Vide = le job du même nom. À renseigner pour renommer un job (ou si son nom a changé dans Hermes) sans en créer un second.',
+                show: { hermesOperation: ['sync'] }
             },
             {
                 label: 'Délai maximal (secondes)',
@@ -133,21 +145,41 @@ class HermesSchedule_Agentflow implements INode {
             let jobs: HermesJob[] | undefined
 
             switch (operation) {
-                case 'create': {
+                case 'create':
+                case 'sync': {
                     const repeatRaw = input.hermesJobRepeat
-                    job = await createJob(conn, {
+                    const definition = {
                         name: (input.hermesJobName as string) ?? '',
                         schedule: (input.hermesJobSchedule as string) ?? '',
                         prompt: (input.hermesJobPrompt as string) ?? '',
                         deliver: input.hermesJobDeliver as string | undefined,
                         repeat: repeatRaw === undefined || repeatRaw === null || repeatRaw === '' ? undefined : Number(repeatRaw)
-                    })
-                    content = `Tâche planifiée créée : ${describeJob(job)}`
+                    }
+                    if (operation === 'create') {
+                        const existing = (await listJobs(conn)).find((j) => j.name?.toLowerCase() === definition.name.trim().toLowerCase())
+                        if (existing) {
+                            throw new HermesError(
+                                `Une tâche nommée « ${definition.name.trim()} » existe déjà [${existing.id}] : utilisez l'opération « Synchroniser » pour la mettre à jour.`,
+                                'BAD_REQUEST'
+                            )
+                        }
+                        job = await createJob(conn, definition)
+                        content = `Tâche planifiée créée : ${describeJob(job)}`
+                    } else {
+                        const res = await syncJob(conn, definition, input.hermesSyncRef as string | undefined)
+                        job = res.job
+                        content = `Tâche planifiée ${res.action === 'created' ? 'créée' : 'mise à jour'} : ${describeJob(job)}`
+                    }
+                    break
+                }
+                case 'get': {
+                    job = await getJob(conn, (input.hermesJobRef as string) ?? '')
+                    content = describeJob(job, true)
                     break
                 }
                 case 'list': {
                     jobs = await listJobs(conn)
-                    content = jobs.length ? jobs.map(describeJob).join('\n') : 'Aucune tâche planifiée.'
+                    content = jobs.length ? jobs.map((j) => describeJob(j)).join('\n') : 'Aucune tâche planifiée.'
                     break
                 }
                 case 'delete':
@@ -167,7 +199,7 @@ class HermesSchedule_Agentflow implements INode {
             return {
                 id: nodeData.id,
                 name: this.name,
-                input: { hermes: { operation, jobRef: input.hermesJobRef, name: input.hermesJobName, schedule: input.hermesJobSchedule, deliver: input.hermesJobDeliver } },
+                input: { hermes: { operation, jobRef: input.hermesJobRef, syncRef: input.hermesSyncRef, name: input.hermesJobName, schedule: input.hermesJobSchedule, deliver: input.hermesJobDeliver } },
                 output: { content, job, jobs },
                 state
             }

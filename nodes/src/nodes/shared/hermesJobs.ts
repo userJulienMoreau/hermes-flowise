@@ -34,7 +34,7 @@ export interface CreateJobInput {
 
 const JOB_ID_RE = /^[a-f0-9]{12}$/
 
-export const createJob = async (conn: HermesConnection, input: CreateJobInput): Promise<HermesJob> => {
+const validateJobInput = (input: CreateJobInput): { name: string; schedule: string } => {
     const name = input.name?.trim()
     const schedule = input.schedule?.trim()
     if (!name) throw new HermesError('Le nom de la tâche planifiée est obligatoire.', 'BAD_REQUEST')
@@ -45,11 +45,57 @@ export const createJob = async (conn: HermesConnection, input: CreateJobInput): 
     if (input.repeat !== undefined && (!Number.isInteger(input.repeat) || input.repeat < 1)) {
         throw new HermesError('Le nombre de répétitions doit être un entier positif.', 'BAD_REQUEST')
     }
+    return { name, schedule }
+}
 
+const jobBody = (input: CreateJobInput, name: string, schedule: string): Record<string, unknown> => {
     const body: Record<string, unknown> = { name, schedule, prompt: input.prompt, deliver: input.deliver?.trim() || 'local' }
     if (input.repeat !== undefined) body.repeat = input.repeat
+    return body
+}
+
+export const createJob = async (conn: HermesConnection, input: CreateJobInput): Promise<HermesJob> => {
+    const { name, schedule } = validateJobInput(input)
+    const body = jobBody(input, name, schedule)
 
     const res = await hermesRequest({ ...conn, method: 'POST', path: '/api/jobs', body })
+    if (!res?.job?.id) throw new HermesError('Réponse inattendue de Hermes : pas de job dans la réponse.', 'BAD_RESPONSE')
+    return res.job
+}
+
+export type SyncResult = { action: 'created' | 'updated'; job: HermesJob }
+
+/**
+ * Fait correspondre un job Hermes à une définition (nom, planning, prompt, livraison) :
+ *  - `ref` (ID ou nom) renseigné : ce job est mis à jour (renommage possible) ; introuvable = erreur ;
+ *  - sinon le job du même nom est mis à jour, et à défaut un job est créé.
+ * Rejouer le flow ne crée donc jamais de doublon. Hermes conserve les champs non fournis (ex. `repeat`).
+ */
+export const syncJob = async (conn: HermesConnection, input: CreateJobInput, ref?: string): Promise<SyncResult> => {
+    const { name, schedule } = validateJobInput(input)
+    const target = ref?.trim() || name
+
+    const jobs = await listJobs(conn)
+    const lower = target.toLowerCase()
+    const matches = jobs.filter((j) => j.id === target || j.name?.toLowerCase() === lower)
+    if (matches.length > 1) {
+        throw new HermesError(`Plusieurs tâches correspondent à « ${target} » (${matches.map((j) => j.id).join(', ')}) : indiquez l'identifiant du job.`, 'BAD_REQUEST')
+    }
+    if (matches.length === 0) {
+        if (ref?.trim()) throw new HermesError(`Aucune tâche planifiée « ${ref.trim()} » à mettre à jour (laissez le champ vide pour la créer).`, 'NOT_FOUND')
+        return { action: 'created', job: await createJob(conn, input) }
+    }
+
+    const body = jobBody(input, name, schedule)
+    const res = await hermesRequest({ ...conn, method: 'PATCH', path: `/api/jobs/${matches[0].id}`, body })
+    if (!res?.job?.id) throw new HermesError('Réponse inattendue de Hermes : pas de job dans la réponse.', 'BAD_RESPONSE')
+    return { action: 'updated', job: res.job }
+}
+
+/** Définition actuelle d'un job (source de vérité : Hermes). */
+export const getJob = async (conn: HermesConnection, ref: string): Promise<HermesJob> => {
+    const id = await resolveJobId(conn, ref)
+    const res = await hermesRequest({ ...conn, method: 'GET', path: `/api/jobs/${id}` })
     if (!res?.job?.id) throw new HermesError('Réponse inattendue de Hermes : pas de job dans la réponse.', 'BAD_RESPONSE')
     return res.job
 }
@@ -93,10 +139,11 @@ const scheduleLabel = (job: HermesJob): string => {
 }
 
 /** Résumé lisible d'un job, pour la sortie texte du nœud. */
-export const describeJob = (job: HermesJob): string => {
+export const describeJob = (job: HermesJob, withPrompt = false): string => {
     const parts = [`« ${job.name ?? '(sans nom)'} » [${job.id}]`, `planning : ${scheduleLabel(job)}`, `livraison : ${job.deliver ?? 'local'}`]
     if (job.enabled === false || job.state === 'paused') parts.push('en pause')
     else if (job.next_run_at) parts.push(`prochaine exécution : ${job.next_run_at}`)
     if (job.last_status) parts.push(`dernier statut : ${job.last_status}`)
+    if (withPrompt && job.prompt) parts.push(`prompt : ${job.prompt}`)
     return parts.join(' · ')
 }

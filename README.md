@@ -67,6 +67,15 @@ Une tâche existante se désigne par son identifiant (12 caractères hexadécima
 | Prompt (5000 car. max) | instruction autonome exécutée par Hermes à chaque déclenchement |
 | Livraison | `local` (défaut), `telegram`, `telegram:<chat_id>`, `slack`, `all` |
 
+Opérations de définition :
+- **Créer** : refuse si une tâche porte déjà ce nom (pas de doublon en rejouant le flow).
+- **Synchroniser** : met à jour la tâche existante (même nom, ou celle désignée par « Tâche existante à mettre à jour » pour un renommage), ou la crée.
+  Rejouable sans risque ; **le flow fait alors foi** et écrase les modifications faites côté Hermes (Telegram, tableau de bord).
+- **Lire** : renvoie la définition *actuelle* dans Hermes (planning, prompt, livraison, statut) pour l'afficher ou l'utiliser dans le flow :
+  c'est l'option où **Hermes fait foi**.
+
+Un nœud ne peut pas être mis à jour automatiquement depuis Hermes : choisir donc, par job, qui fait foi (Synchroniser = le flow, Lire = Hermes).
+
 Hermes planifie en **UTC** : `daily at 7am` = 9 h en heure d'été de Paris.
 
 ### Déclencher un flow Flowise à heure fixe
@@ -119,8 +128,8 @@ textes `hermesPrompt` et `hermesInstructions` du JSON.
 ## Développement et tests
 
 ```bash
-cd nodes && npm install && npm test          # 59 tests TypeScript (HTTP mocké), compilation stricte : npm run typecheck
-python3 -I -m unittest discover -s hermes/tests   # 15 tests du script de déclenchement
+cd nodes && npm install && npm test          # 65 tests TypeScript (HTTP mocké), compilation stricte : npm run typecheck
+python3 -I -m unittest discover -s hermes/tests   # 21 tests du script de déclenchement
 ```
 
 Structure : `nodes/` (nœuds et credential en TypeScript strict ; `src/nodes/shared/` = client HTTP sans dépendance à Flowise),
