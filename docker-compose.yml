@@ -19,6 +19,10 @@ services:
       - hermes_data:/opt/data
       # Scripts des tâches cron « sans LLM » qui déclenchent des flows Flowise (Hermes ne les lit que dans /opt/data/scripts).
       - ./hermes/scripts:/opt/data/scripts:ro
+      # Dossier de dépôt de documents (RAG littérature) partagé avec le Mac. Uniquement ce dossier : pas de base SQLite
+      # dedans (le magasin vectoriel est dans ../vectorstore, qui reste dans le volume Docker, car SQLite est peu fiable
+      # sur un dossier partagé macOS).
+      - ${LITTERATURE_SRC_DIR:-${HOME}/Desktop/Hermes/litterature/src}:/opt/data/home/rag/litterature/src
     environment:
       API_SERVER_ENABLED: "true"
       API_SERVER_HOST: "0.0.0.0" # nécessaire dans un conteneur

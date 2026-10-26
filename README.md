@@ -169,6 +169,18 @@ Structure : `nodes/` (nœuds et credential en TypeScript strict ; `src/nodes/sha
 **Pourquoi une image dérivée plutôt qu'un fork :** Flowise ne charge les nœuds que depuis `flowise-components/dist/nodes`
 et `dist/credentials` (`NodesPool.ts`, aucune variable pour un autre chemin). Le dépôt reste léger et on met Flowise à jour en changeant le tag.
 
+## Déposer des documents depuis le Mac (RAG littérature)
+
+Le dossier `~/Desktop/Hermes/litterature/src` du Mac est monté sur `/opt/data/home/rag/litterature/src` dans Hermes : un fichier déposé
+d'un côté apparaît immédiatement de l'autre, et l'agent peut lire, créer et modifier des fichiers dans ce dossier.
+Pour utiliser un autre dossier : `LITTERATURE_SRC_DIR=/chemin/vers/dossier` dans `.env`, puis `docker compose up -d hermes`.
+
+- Seul `src` est partagé : le magasin vectoriel (`../vectorstore/chroma.sqlite3`) reste dans le volume Docker, car SQLite est peu fiable
+  sur un dossier partagé macOS. Ne montez pas de dossier contenant des bases de données.
+- Avant le premier montage, le contenu existant du conteneur doit être copié sur le Mac (un montage masque ce qui était dans le dossier) :
+  `docker cp hermes:/opt/data/home/rag/litterature/src/. ~/Desktop/Hermes/litterature/src/`.
+- macOS peut demander d'autoriser Docker à accéder au Bureau (Réglages → Confidentialité et sécurité → Fichiers et dossiers).
+
 ## Dépannage
 
 | Symptôme | Cause / remède |
