@@ -140,6 +140,13 @@ donne le code de sortie 1 et Hermes livre une alerte.
 **Limite :** `/api/jobs` ne sait pas créer de tâche « script » (pas de champ `script`) ; elle se crée en CLI. Le nœud
 Hermes Schedule peut ensuite la lister, la suspendre, la relancer ou la supprimer. Vos scripts contenant des ID de flows sont ignorés par Git.
 
+## L'outil Flowise pour Hermes (sens inverse : l'agent exécute vos flows)
+
+Dépôt séparé : **[hermes-tool-flowise](https://github.com/userJulienMoreau/hermes-tool-flowise)** — un serveur MCP autonome qui donne à l'agent
+Hermes les outils `flowise_list_flows` et `flowise_run_flow` (installation en une commande, utilisable par Hermes lui-même ; par défaut seuls
+les flows dont le nom commence par `mcp-` sont exposés). Avec ce projet : `docker cp . hermes:/tmp/hft` depuis le clone, puis
+`docker compose exec hermes python3 /tmp/hft/install.py --hermes-home /opt/data --flowise-url http://flowise:3000` et `docker compose restart hermes`.
+
 ## Scénarios d'exemple
 
 Dans `examples/` (régénérables : `python3 examples/build_examples.py`). Import : Agentflows → nouvel Agentflow → ⚙ → *Load Agents*,
