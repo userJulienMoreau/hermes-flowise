@@ -237,3 +237,8 @@ Pour utiliser un autre dossier : `LITTERATURE_SRC_DIR=/chemin/vers/dossier` dans
 - Le paramètre `X-Hermes-Session-Id` (ID de session du nœud Hermes Task) est envoyé mais son effet n'a pas été vérifié.
 - L'opération « Exécuter maintenant » de Hermes Schedule et l'import des deux premiers JSON d'exemple dans l'interface n'ont pas été testés
   par l'auteur dans l'interface Flowise (les appels sous-jacents l'ont été). Le troisième exemple, lui, a été importé par l'API et exécuté.
+
+## Licence
+
+MIT — voir [LICENSE](LICENSE). Les images utilisées comme base (Flowise, conteneur Hermes Agent) et
+`flowise-components` gardent leurs licences propres.
