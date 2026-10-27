@@ -1,0 +1,103 @@
+{
+  "id": "customFunctionAgentflow_0",
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "type": "agentFlow",
+  "width": 163,
+  "height": 66,
+  "selected": false,
+  "positionAbsolute": {
+    "x": 0,
+    "y": 0
+  },
+  "data": {
+    "label": "customFunctionAgentflow",
+    "name": "customFunctionAgentflow",
+    "version": 1.1,
+    "type": "CustomFunction",
+    "category": "Agent Flows",
+    "description": "Execute custom function",
+    "baseClasses": [
+      "CustomFunction"
+    ],
+    "color": "#E4B7FF",
+    "filePath": "/usr/local/lib/node_modules/flowise/node_modules/flowise-components/dist/nodes/agentflow/CustomFunction/CustomFunction.js",
+    "inputs": {
+      "customFunctionInputVariables": [],
+      "customFunctionJavascriptFunction": "",
+      "customFunctionUpdateState": []
+    },
+    "inputParams": [
+      {
+        "label": "Input Variables",
+        "name": "customFunctionInputVariables",
+        "description": "Input variables can be used in the function with prefix $. For example: $foo",
+        "type": "array",
+        "optional": true,
+        "acceptVariable": true,
+        "array": [
+          {
+            "label": "Variable Name",
+            "name": "variableName",
+            "type": "string"
+          },
+          {
+            "label": "Variable Value",
+            "name": "variableValue",
+            "type": "string",
+            "acceptVariable": true
+          }
+        ],
+        "id": "customFunctionAgentflow_0-input-customFunctionInputVariables-array",
+        "display": true
+      },
+      {
+        "label": "Javascript Function",
+        "name": "customFunctionJavascriptFunction",
+        "type": "code",
+        "codeExample": "/*\n* You can use any libraries imported in Flowise\n* You can use properties specified in Input Variables with the prefix $. For example: $foo\n* You can get default flow config: $flow.sessionId, $flow.chatId, $flow.chatflowId, $flow.input, $flow.state\n* You can get global variables: $vars.<variable-name>\n* Must return a string value at the end of function\n*/\n\nconst fetch = require('node-fetch');\nconst url = 'https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true';\nconst options = {\n    method: 'GET',\n    headers: {\n        'Content-Type': 'application/json'\n    }\n};\ntry {\n    const response = await fetch(url, options);\n    const text = await response.text();\n    return text;\n} catch (error) {\n    console.error(error);\n    return '';\n}",
+        "description": "The function to execute. Must return a string or an object that can be converted to a string.",
+        "id": "customFunctionAgentflow_0-input-customFunctionJavascriptFunction-code",
+        "display": true
+      },
+      {
+        "label": "Update Flow State",
+        "name": "customFunctionUpdateState",
+        "description": "Update runtime state during the execution of the workflow",
+        "type": "array",
+        "optional": true,
+        "acceptVariable": true,
+        "array": [
+          {
+            "label": "Key",
+            "name": "key",
+            "type": "asyncOptions",
+            "loadMethod": "listRuntimeStateKeys"
+          },
+          {
+            "label": "Value",
+            "name": "value",
+            "type": "string",
+            "acceptVariable": true,
+            "acceptNodeOutputAsVariable": true
+          }
+        ],
+        "id": "customFunctionAgentflow_0-input-customFunctionUpdateState-array",
+        "display": true
+      }
+    ],
+    "inputAnchors": [],
+    "outputs": {},
+    "outputAnchors": [
+      {
+        "id": "customFunctionAgentflow_0-output-customFunctionAgentflow",
+        "label": "3. Analyser la réponse",
+        "name": "customFunctionAgentflow"
+      }
+    ],
+    "id": "customFunctionAgentflow_0",
+    "selected": false
+  }
+}

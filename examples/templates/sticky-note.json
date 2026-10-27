@@ -1,0 +1,48 @@
+{
+  "id": "stickyNoteAgentflow_0",
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "type": "agentFlow",
+  "width": 420,
+  "height": 150,
+  "selected": false,
+  "positionAbsolute": {
+    "x": 0,
+    "y": 0
+  },
+  "data": {
+    "label": "stickyNoteAgentflow",
+    "name": "stickyNoteAgentflow",
+    "version": 1,
+    "type": "StickyNote",
+    "color": "#fee440",
+    "category": "Agent Flows",
+    "description": "Add notes to the agent flow",
+    "baseClasses": [
+      "StickyNote"
+    ],
+    "filePath": "/usr/local/lib/node_modules/flowise/node_modules/flowise-components/dist/nodes/agentflow/StickyNote/StickyNote.js",
+    "inputs": {
+      "note": ""
+    },
+    "inputParams": [
+      {
+        "label": "",
+        "name": "note",
+        "type": "string",
+        "rows": 1,
+        "placeholder": "Type something here",
+        "optional": true,
+        "id": "stickyNoteAgentflow_0-input-note-string",
+        "display": true
+      }
+    ],
+    "inputAnchors": [],
+    "outputs": {},
+    "outputAnchors": [],
+    "id": "stickyNoteAgentflow_0",
+    "selected": false
+  }
+}

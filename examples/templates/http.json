@@ -1,0 +1,258 @@
+{
+  "id": "httpAgentflow_0",
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "type": "agentFlow",
+  "width": 163,
+  "height": 66,
+  "selected": false,
+  "positionAbsolute": {
+    "x": 0,
+    "y": 0
+  },
+  "data": {
+    "label": "httpAgentflow",
+    "name": "httpAgentflow",
+    "version": 1.1,
+    "type": "HTTP",
+    "category": "Agent Flows",
+    "description": "Send a HTTP request",
+    "baseClasses": [
+      "HTTP"
+    ],
+    "color": "#FF7F7F",
+    "credential": {
+      "label": "HTTP Credential",
+      "name": "credential",
+      "type": "credential",
+      "credentialNames": [
+        "httpBasicAuth",
+        "httpBearerToken",
+        "httpApiKey"
+      ],
+      "optional": true
+    },
+    "filePath": "/usr/local/lib/node_modules/flowise/node_modules/flowise-components/dist/nodes/agentflow/HTTP/HTTP.js",
+    "inputs": {
+      "method": "GET",
+      "url": "",
+      "headers": [],
+      "queryParams": [],
+      "bodyType": "json",
+      "body": "",
+      "responseType": "text"
+    },
+    "inputParams": [
+      {
+        "label": "HTTP Credential",
+        "name": "credential",
+        "type": "credential",
+        "credentialNames": [
+          "httpBasicAuth",
+          "httpBearerToken",
+          "httpApiKey"
+        ],
+        "optional": true,
+        "id": "httpAgentflow_0-input-credential-credential",
+        "display": true
+      },
+      {
+        "label": "Method",
+        "name": "method",
+        "type": "options",
+        "options": [
+          {
+            "label": "GET",
+            "name": "GET"
+          },
+          {
+            "label": "POST",
+            "name": "POST"
+          },
+          {
+            "label": "PUT",
+            "name": "PUT"
+          },
+          {
+            "label": "DELETE",
+            "name": "DELETE"
+          },
+          {
+            "label": "PATCH",
+            "name": "PATCH"
+          }
+        ],
+        "default": "GET",
+        "id": "httpAgentflow_0-input-method-options",
+        "display": true
+      },
+      {
+        "label": "URL",
+        "name": "url",
+        "type": "string",
+        "acceptVariable": true,
+        "id": "httpAgentflow_0-input-url-string",
+        "display": true
+      },
+      {
+        "label": "Headers",
+        "name": "headers",
+        "type": "array",
+        "acceptVariable": true,
+        "array": [
+          {
+            "label": "Key",
+            "name": "key",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "label": "Value",
+            "name": "value",
+            "type": "string",
+            "default": "",
+            "acceptVariable": true
+          }
+        ],
+        "optional": true,
+        "id": "httpAgentflow_0-input-headers-array",
+        "display": true
+      },
+      {
+        "label": "Query Params",
+        "name": "queryParams",
+        "type": "array",
+        "acceptVariable": true,
+        "array": [
+          {
+            "label": "Key",
+            "name": "key",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "label": "Value",
+            "name": "value",
+            "type": "string",
+            "default": "",
+            "acceptVariable": true
+          }
+        ],
+        "optional": true,
+        "id": "httpAgentflow_0-input-queryParams-array",
+        "display": true
+      },
+      {
+        "label": "Body Type",
+        "name": "bodyType",
+        "type": "options",
+        "options": [
+          {
+            "label": "JSON",
+            "name": "json"
+          },
+          {
+            "label": "Raw",
+            "name": "raw"
+          },
+          {
+            "label": "Form Data",
+            "name": "formData"
+          },
+          {
+            "label": "x-www-form-urlencoded",
+            "name": "xWwwFormUrlencoded"
+          }
+        ],
+        "optional": true,
+        "id": "httpAgentflow_0-input-bodyType-options",
+        "display": true
+      },
+      {
+        "label": "Body",
+        "name": "body",
+        "type": "string",
+        "acceptVariable": true,
+        "rows": 4,
+        "show": {
+          "bodyType": [
+            "raw",
+            "json"
+          ]
+        },
+        "optional": true,
+        "id": "httpAgentflow_0-input-body-string",
+        "display": true
+      },
+      {
+        "label": "Body",
+        "name": "body",
+        "type": "array",
+        "acceptVariable": true,
+        "show": {
+          "bodyType": [
+            "xWwwFormUrlencoded",
+            "formData"
+          ]
+        },
+        "array": [
+          {
+            "label": "Key",
+            "name": "key",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "label": "Value",
+            "name": "value",
+            "type": "string",
+            "default": "",
+            "acceptVariable": true
+          }
+        ],
+        "optional": true,
+        "id": "httpAgentflow_0-input-body-array",
+        "display": true
+      },
+      {
+        "label": "Response Type",
+        "name": "responseType",
+        "type": "options",
+        "options": [
+          {
+            "label": "JSON",
+            "name": "json"
+          },
+          {
+            "label": "Text",
+            "name": "text"
+          },
+          {
+            "label": "Array Buffer",
+            "name": "arraybuffer"
+          },
+          {
+            "label": "Raw (Base64)",
+            "name": "base64"
+          }
+        ],
+        "optional": true,
+        "id": "httpAgentflow_0-input-responseType-options",
+        "display": true
+      }
+    ],
+    "inputAnchors": [],
+    "outputs": {},
+    "outputAnchors": [
+      {
+        "id": "httpAgentflow_0-output-httpAgentflow",
+        "label": "2. Interroger CoinGecko",
+        "name": "httpAgentflow"
+      }
+    ],
+    "id": "httpAgentflow_0",
+    "selected": false
+  }
+}
