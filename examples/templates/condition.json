@@ -1,0 +1,277 @@
+{
+  "id": "conditionAgentflow_0",
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "type": "agentFlow",
+  "width": 163,
+  "height": 66,
+  "selected": false,
+  "positionAbsolute": {
+    "x": 0,
+    "y": 0
+  },
+  "data": {
+    "label": "conditionAgentflow",
+    "name": "conditionAgentflow",
+    "version": 1,
+    "type": "Condition",
+    "category": "Agent Flows",
+    "description": "Split flows based on If Else conditions",
+    "baseClasses": [
+      "Condition"
+    ],
+    "color": "#FFB938",
+    "filePath": "/usr/local/lib/node_modules/flowise/node_modules/flowise-components/dist/nodes/agentflow/Condition/Condition.js",
+    "inputs": {
+      "conditions": [
+        {
+          "type": "string",
+          "value1": "",
+          "operation": "equal",
+          "value2": ""
+        }
+      ]
+    },
+    "inputParams": [
+      {
+        "label": "Conditions",
+        "name": "conditions",
+        "type": "array",
+        "description": "Values to compare",
+        "acceptVariable": true,
+        "default": [
+          {
+            "type": "string",
+            "value1": "",
+            "operation": "equal",
+            "value2": ""
+          }
+        ],
+        "array": [
+          {
+            "label": "Type",
+            "name": "type",
+            "type": "options",
+            "options": [
+              {
+                "label": "String",
+                "name": "string"
+              },
+              {
+                "label": "Number",
+                "name": "number"
+              },
+              {
+                "label": "Boolean",
+                "name": "boolean"
+              }
+            ],
+            "default": "string"
+          },
+          {
+            "label": "Value 1",
+            "name": "value1",
+            "type": "string",
+            "default": "",
+            "description": "First value to be compared with",
+            "acceptVariable": true,
+            "show": {
+              "conditions[$index].type": "string"
+            }
+          },
+          {
+            "label": "Operation",
+            "name": "operation",
+            "type": "options",
+            "options": [
+              {
+                "label": "Contains",
+                "name": "contains"
+              },
+              {
+                "label": "Ends With",
+                "name": "endsWith"
+              },
+              {
+                "label": "Equal",
+                "name": "equal"
+              },
+              {
+                "label": "Not Contains",
+                "name": "notContains"
+              },
+              {
+                "label": "Not Equal",
+                "name": "notEqual"
+              },
+              {
+                "label": "Regex",
+                "name": "regex"
+              },
+              {
+                "label": "Starts With",
+                "name": "startsWith"
+              },
+              {
+                "label": "Is Empty",
+                "name": "isEmpty"
+              },
+              {
+                "label": "Not Empty",
+                "name": "notEmpty"
+              }
+            ],
+            "default": "equal",
+            "description": "Type of operation",
+            "show": {
+              "conditions[$index].type": "string"
+            }
+          },
+          {
+            "label": "Value 2",
+            "name": "value2",
+            "type": "string",
+            "default": "",
+            "description": "Second value to be compared with",
+            "acceptVariable": true,
+            "show": {
+              "conditions[$index].type": "string"
+            },
+            "hide": {
+              "conditions[$index].operation": [
+                "isEmpty",
+                "notEmpty"
+              ]
+            }
+          },
+          {
+            "label": "Value 1",
+            "name": "value1",
+            "type": "number",
+            "default": "",
+            "description": "First value to be compared with",
+            "acceptVariable": true,
+            "show": {
+              "conditions[$index].type": "number"
+            }
+          },
+          {
+            "label": "Operation",
+            "name": "operation",
+            "type": "options",
+            "options": [
+              {
+                "label": "Smaller",
+                "name": "smaller"
+              },
+              {
+                "label": "Smaller Equal",
+                "name": "smallerEqual"
+              },
+              {
+                "label": "Equal",
+                "name": "equal"
+              },
+              {
+                "label": "Not Equal",
+                "name": "notEqual"
+              },
+              {
+                "label": "Larger",
+                "name": "larger"
+              },
+              {
+                "label": "Larger Equal",
+                "name": "largerEqual"
+              },
+              {
+                "label": "Is Empty",
+                "name": "isEmpty"
+              },
+              {
+                "label": "Not Empty",
+                "name": "notEmpty"
+              }
+            ],
+            "default": "equal",
+            "description": "Type of operation",
+            "show": {
+              "conditions[$index].type": "number"
+            }
+          },
+          {
+            "label": "Value 2",
+            "name": "value2",
+            "type": "number",
+            "default": 0,
+            "description": "Second value to be compared with",
+            "acceptVariable": true,
+            "show": {
+              "conditions[$index].type": "number"
+            }
+          },
+          {
+            "label": "Value 1",
+            "name": "value1",
+            "type": "boolean",
+            "default": false,
+            "description": "First value to be compared with",
+            "show": {
+              "conditions[$index].type": "boolean"
+            }
+          },
+          {
+            "label": "Operation",
+            "name": "operation",
+            "type": "options",
+            "options": [
+              {
+                "label": "Equal",
+                "name": "equal"
+              },
+              {
+                "label": "Not Equal",
+                "name": "notEqual"
+              }
+            ],
+            "default": "equal",
+            "description": "Type of operation",
+            "show": {
+              "conditions[$index].type": "boolean"
+            }
+          },
+          {
+            "label": "Value 2",
+            "name": "value2",
+            "type": "boolean",
+            "default": false,
+            "description": "Second value to be compared with",
+            "show": {
+              "conditions[$index].type": "boolean"
+            }
+          }
+        ],
+        "id": "conditionAgentflow_0-input-conditions-array",
+        "display": true
+      }
+    ],
+    "inputAnchors": [],
+    "outputs": {},
+    "outputAnchors": [
+      {
+        "id": "conditionAgentflow_0-output-0",
+        "label": "0",
+        "name": "0"
+      },
+      {
+        "id": "conditionAgentflow_0-output-1",
+        "label": "1",
+        "name": "1"
+      }
+    ],
+    "id": "conditionAgentflow_0",
+    "selected": false
+  }
+}

@@ -140,11 +140,31 @@ donne le code de sortie 1 et Hermes livre une alerte.
 **Limite :** `/api/jobs` ne sait pas créer de tâche « script » (pas de champ `script`) ; elle se crée en CLI. Le nœud
 Hermes Schedule peut ensuite la lister, la suspendre, la relancer ou la supprimer. Vos scripts contenant des ID de flows sont ignorés par Git.
 
+### Détecter une panne silencieuse (diagnostic périodique)
+
+Un flow cassé se voit : l'appel renvoie une erreur. Mais **un job qui ne tourne pas ne produit aucun message** — donc
+rien ne se voit, et l'alerte que vous croyez avoir n'existe plus. C'est la panne la plus coûteuse, parce qu'elle reste
+invisible jusqu'au jour où elle compte.
+
+`hermes/scripts/flowise_doctor.py` branche le diagnostic de [hermes-tool-flowise](https://github.com/userJulienMoreau/hermes-tool-flowise)
+sur une tâche planifiée. Il vérifie, **sans rien exécuter** (aucun jeton dépensé, aucun message envoyé) : Flowise joignable,
+chaque flow exposé structurellement sain (identifiant non sélectionné, URL vide, fonction vide, absence de Start ou de
+réponse), la dernière exécution de chaque flow, et chaque job Hermes **en pause, en erreur ou en retard**.
+
+```bash
+docker compose exec hermes hermes cron create "every monday 8am" "" --no-agent \
+    --script flowise_doctor.py --deliver telegram --name "Diagnostic Flowise"
+```
+
+**Sortie vide quand tout va bien** : la tâche ne parle que les lundis où quelque chose ne va pas. Le rapport peut
+signaler un job volontairement en pause à chaque passage : ajouter son nom à `FLOWISE_MCP_DOCTOR_IGNORE` dans le `env:`
+du serveur MCP pour l'ignorer.
+
 ## L'outil Flowise pour Hermes (sens inverse : l'agent exécute vos flows)
 
 Dépôt séparé : **[hermes-tool-flowise](https://github.com/userJulienMoreau/hermes-tool-flowise)** — un serveur MCP autonome qui donne à l'agent
-Hermes les outils `flowise_list_flows` et `flowise_run_flow` (installation en une commande, utilisable par Hermes lui-même ; par défaut seuls
-les flows dont le nom commence par `mcp-` sont exposés). Avec ce projet : `docker cp . hermes:/tmp/hft` depuis le clone, puis
+Hermes les outils `flowise_list_flows`, `flowise_run_flow` et `flowise_doctor` (installation en une commande, utilisable par Hermes lui-même ; par
+défaut seuls les flows dont le nom commence par `mcp-` sont exposés). Avec ce projet : `docker cp . hermes:/tmp/hft` depuis le clone, puis
 `docker compose exec hermes python3 /tmp/hft/install.py --hermes-home /opt/data --flowise-url http://flowise:3000` et `docker compose restart hermes`.
 
 ## Scénarios d'exemple
@@ -156,9 +176,16 @@ puis sélectionner le credential « Hermes API » sur le nœud Hermes Task.
 |---|---|---|
 | `01-digest-quotidien.json` | Start → **Hermes Task** (recherche web + résumé) → Direct Reply | le sujet : `intelligence artificielle` |
 | `02-surveillance-bitcoin.json` | Start → **Hermes Task** (vérifie un critère) → Direct Reply | le critère : `le prix du Bitcoin dépasse 100000 USD` |
+| `03-veille-crypto.json` | Start → Custom Function → **HTTP** (CoinGecko) → Custom Function → Condition → **Hermes Task** → Condition → Direct Reply ×3 | le critère et le seuil : `préviens-moi si un actif bouge de plus de 2 % sur 24 h` |
+
+Les deux premiers délèguent tout à Hermes. Le troisième montre une logique complète : **appel HTTP sans clé**,
+deux fonctions JavaScript (préparer le seuil, parser la réponse), **deux conditions imbriquées**, et une branche
+d'erreur si la source est injoignable. Il coûte aussi moins de jetons, parce que les chiffres sont lus à la source
+et qu'Hermes ne reçoit qu'un résumé déjà mis en forme.
 
 La surveillance répond `NO_ALERT` quand le critère n'est pas rempli : rien n'est envoyé. `{{ question }}` étant la question reçue,
-un même flow sert à plusieurs sujets ou seuils.
+un même flow sert à plusieurs sujets ou seuils. Le troisième exemple a été **importé et exécuté** (sur les deux branches) pour
+vérifier qu'il fonctionne ; les deux premiers n'ont pas été validés dans l'interface.
 
 Si l'import échoue : recréer Start → Hermes Task → Direct Reply (message `{{ hermesTaskAgentflow_0 }}`) en copiant les
 textes `hermesPrompt` et `hermesInstructions` du JSON.
@@ -167,11 +194,13 @@ textes `hermesPrompt` et `hermesInstructions` du JSON.
 
 ```bash
 cd nodes && npm install && npm test          # 65 tests TypeScript (HTTP mocké), compilation stricte : npm run typecheck
-python3 -I -m unittest discover -s hermes/tests   # 44 tests des scripts
+python3 -I -m unittest discover -s hermes/tests   # 48 tests des scripts
 ```
 
 Structure : `nodes/` (nœuds et credential en TypeScript strict ; `src/nodes/shared/` = client HTTP sans dépendance à Flowise),
 `docker/flowise/Dockerfile` (compile les nœuds et les copie dans `flowise-components/dist`), `hermes/scripts/`, `examples/`.
+Les gabarits de `examples/templates/` sont des exports réels de Flowise : Start et Direct Reply viennent d'un export 3.1.3,
+Custom Function, HTTP, Condition et Sticky Note d'un export 3.1.2 (le flow « veille crypto »).
 
 **Pourquoi une image dérivée plutôt qu'un fork :** Flowise ne charge les nœuds que depuis `flowise-components/dist/nodes`
 et `dist/credentials` (`NodesPool.ts`, aucune variable pour un autre chemin). Le dépôt reste léger et on met Flowise à jour en changeant le tag.
@@ -198,11 +227,13 @@ Pour utiliser un autre dossier : `LITTERATURE_SRC_DIR=/chemin/vers/dossier` dans
 | « Clé API refusée par Hermes (HTTP 401) » | La clé du credential ≠ `API_SERVER_KEY`. |
 | « Hermes est injoignable » | `docker compose ps` ; URL du credential = `http://hermes:8642`. |
 | « Multiple starting nodes are not allowed » | Il manque Start (ou un lien) dans l'Agentflow. |
-| Une tâche planifiée ne livre rien | Vérifier `last_status` / `last_delivery_error` : `curl -H "Authorization: Bearer $API_SERVER_KEY" localhost:8642/api/jobs`. Sortie vide ou `NO_ALERT` = silence voulu. |
+| Une tâche planifiée ne livre rien | Vérifier `last_status` / `last_delivery_error` : `curl -H "Authorization: Bearer $API_SERVER_KEY" localhost:8642/api/jobs`. Sortie vide ou `NO_ALERT` = silence voulu. **Ou lancer le diagnostic** (voir plus haut) : un job en pause est la cause la plus fréquente. |
 | Script cron « Script not found » juste après sa création | Attendre quelques secondes (synchronisation du dossier monté) et relancer. |
 | Le nouveau nœud n'apparaît pas | `docker compose up -d --build` puis recharger la page. |
 
 ## Limites connues
 - Chaque appel à Hermes consomme ~12 000 tokens de prompt (prompt système et outils) : une surveillance horaire pèse ~290 000 tokens/jour.
+  D'où l'intérêt du troisième exemple, qui fait lire les chiffres à la source et n'envoie à Hermes qu'un résumé.
 - Le paramètre `X-Hermes-Session-Id` (ID de session du nœud Hermes Task) est envoyé mais son effet n'a pas été vérifié.
-- L'opération « Exécuter maintenant » de Hermes Schedule et l'import des JSON d'exemple dans l'interface n'ont pas été testés par l'auteur dans l'interface Flowise (les appels sous-jacents l'ont été).
+- L'opération « Exécuter maintenant » de Hermes Schedule et l'import des deux premiers JSON d'exemple dans l'interface n'ont pas été testés
+  par l'auteur dans l'interface Flowise (les appels sous-jacents l'ont été). Le troisième exemple, lui, a été importé par l'API et exécuté.
